@@ -30,15 +30,17 @@ you only need `pac_pack` and `pac_unpack` (compile yourself using **Visual Studi
 
 Put the script in the game folder .
 
-Create a `Output` folder in the same directory and copy the `*.pac_unpack` fold into the `Output` folder
+Create a `Output` folder in the same directory and copy the `*.pac_unpack` folder into the `Output` folder
 
 change the **target pac path** in line 53.
 
 run `python bin_dump.py`
 
+all text files will be in the original `*.pac_unpack` folder.
+
 #### Step3. repack new `dat` files
 
- do not move extracted  `txt` files
+do not move extracted  `txt` files
 
 change the **target folder path** in line 42.
 
