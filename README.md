@@ -4,9 +4,9 @@
 
 Only tested on`あくありうむ。for Windows(Steam)`
 
-### How to use
+## How to use
 
-##### Step1. unpack the pac
+#### Step1. unpack the pac
 
 Unpack the following pac files with [tools](https://github.com/Yggdrasill-Moe/Niflheim/tree/master/NeXAS)
 
@@ -26,7 +26,7 @@ you only need `pac_pack` and `pac_unpack` (compile yourself using **Visual Studi
 
 **NOTE**: You need to change the encode from `932` to `CP_UTF8` for `WideCharToMultiByte` function in the `*.c` files before compile.
 
-##### Step2. extract all text from `dat` files
+#### Step2. extract all text from `dat` files
 
 Put the script in the game folder .
 
@@ -36,7 +36,7 @@ change the **target pac path** in line 53.
 
 run `python bin_dump.py`
 
-##### Step3. repack new `dat` files
+#### Step3. repack new `dat` files
 
  do not move extracted  `txt` files
 
@@ -44,7 +44,7 @@ change the **target folder path** in line 42.
 
 run `python bin_import.py`
 
-##### Step4. repack `dat folder`  to `pac`
+#### Step4. repack `dat folder`  to `pac`
 
 drag the folder to `pac_pack.exe`
 
