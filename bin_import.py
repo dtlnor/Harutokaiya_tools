@@ -4,7 +4,7 @@ import struct
 import os
 import pathlib
 
-path = pathlib.Path('./')
+path = pathlib.Path('./Output/')
 
 def walk(adr):
 	mylist=[]
