@@ -50,7 +50,7 @@ def dumptxt(src, offset, count):
 	return str_list
 
 def main():
-	f_lst = walk('Script.pac_unpack')
+	f_lst = walk('Script.pac_unpack') # change this folder path for other unpacked pac
 	for fn in f_lst:
 		print('dump text from', fn)
 		src = open(fn, 'rb')
