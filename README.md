@@ -12,6 +12,10 @@ Unpack the following pac files with [tools](https://github.com/Yggdrasill-Moe/Ni
 
 you only need `pac_pack` and `pac_unpack` (compile yourself using **Visual Studio**)
 
+**NOTE**: You need to change the encode from `932` to `CP_UTF8` for `WideCharToMultiByte` function in the `*.c` files before compile.
+
+drag `*.pac` file to `pac_unpack.exe`
+
 > Config.pac
 >
 > Config-en.pac ( only if you want to replace English with your language)
@@ -24,7 +28,6 @@ you only need `pac_pack` and `pac_unpack` (compile yourself using **Visual Studi
 >
 > Movie.pac
 
-**NOTE**: You need to change the encode from `932` to `CP_UTF8` for `WideCharToMultiByte` function in the `*.c` files before compile.
 
 #### Step2. extract all text from `dat` files
 
