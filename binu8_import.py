@@ -2,95 +2,115 @@
 
 import struct
 import os
-import pathlib
+import io
+from pathlib import Path
 
-path = pathlib.Path('./Output/')
 
-def walk(adr):
-	mylist=[]
-	for root,dirs,files in os.walk(adr):
-		for name in files:
-			if name[-6:] != '.binu8':
-				continue
-			if name == '__global.binu8':
-				continue
-			adrlist=os.path.join(root, name)
-			mylist.append(adrlist)
-	return mylist
-
-def byte2int(byte):
-	long_tuple=struct.unpack('<L',byte)
-	long = long_tuple[0]
+def byte2int(byte: bytes) -> int:
+	long, = struct.unpack("<L", byte)
 	return long
 
-def dumpstr(src):
-    bstr = b''
-    len = src.read(4)
-    c = src.read(1)
-    while c != b'\x00':
-        bstr += c
-        c = src.read(1)
-    return bstr.decode('utf-8')
 
-def dumptxt(src, offset, count):
-	src.seek(offset)
+def dumpstr(src: io.BufferedReader) -> str:
+	length, = struct.unpack("<I", src.read(4))  # pascal string
+	bstr = src.read(length)
+	assert bstr[-1] == 0  # pascal string should be null-terminated
+	# return str and remove trailing null bytes
+	return bstr.decode("utf-8").rstrip("\x00")
+
+
+def dumptxt(src: io.BufferedReader, offset: int, count: int) -> list[str]:
+	src.seek(offset, os.SEEK_SET)
 	str_list = []
-	for i in range(0, count):
+	for _ in range(count):
+		# str_list.append(dumpstr(src).replace("\n", "\\n").replace("\r", "\\r"))
 		str_list.append(dumpstr(src))
 	return str_list
 
-def main():
-	f_lst = walk('Script')
+
+def main(src_folder: Path):
+	# make new dest folder
+	dest_folder = src_folder.parent / "Output" / (src_folder.name)
+	dest_folder.mkdir(parents=True, exist_ok=True)
+
+	f_lst = [file_path for file_path in src_folder.rglob("*.binu8") if file_path.name != "__global.binu8"]
 
 	for fn in f_lst:
-		src = open(fn, 'rb')
-		dstname = fn[:-6] + '.txt'
-		txt = open(dstname, 'r', encoding='utf-8')
-		filesize=os.path.getsize(fn)
-		#src.seek(4)
-		#entry_count = byte2int(src.read(4))
-		#str_offset = (entry_count << 1) * 4 + 8
-		version = src.read(9)
+		src = fn.open("rb")
+		txt = fn.with_suffix(".txt").open("r", encoding="utf-8")
+		filesize = fn.stat().st_size
+		# src.seek(4)
+		# entry_count = byte2int(src.read(4))
+		# str_offset = (entry_count << 1) * 4 + 8
+		header = src.read(9)
+		VER_MAGIC = b"VER"
 		# does it start with version (no length prefix)
-		if version[0] == 0x56 and version[1] == 0x45 and version[2] == 0x52: # VER
-			src.seek(9, 0)
+		if header[:3] == VER_MAGIC:
+			src.seek(9, os.SEEK_SET)
 			unk_count = byte2int(src.read(4))
-			src.seek(unk_count * 4, 1)
+			src.seek(unk_count * 4, os.SEEK_CUR)
 		# does it start with version (length prefixed)
-		elif version[0] == 9 and version[4] == 0x56 and version[5] == 0x45 and version[6] == 0x52:
-			src.seek(13, 0)
+		elif header[0] == 9 and header[4:7] == VER_MAGIC:
+			src.seek(13, os.SEEK_SET)
 			unk_count = byte2int(src.read(4))
-			src.seek(unk_count * 4, 1)
+			src.seek(unk_count * 4, os.SEEK_CUR)
 		# if it doesnt start with version
 		else:
-			src.seek(0)
+			src.seek(0, os.SEEK_SET)
 
 		init_code_count = byte2int(src.read(4))
-		src.seek(init_code_count * 8, 1)
+		src.seek(init_code_count * 8, os.SEEK_CUR)
 		code_count = byte2int(src.read(4))
-		src.seek(code_count * 8, 1)
+		src.seek(code_count * 8, os.SEEK_CUR)
+		str_count = byte2int(src.read(4))
+
 		str_offset = src.tell()
 		src.seek(0)
-		data=src.read(str_offset+9) #str_offset + str_count + empty string(size + null terminator)
-		dst = open(path.joinpath(fn[:-6]+'.binu8'),'wb')
+		data = src.read(str_offset)
+		dst = (dest_folder / fn.stem).with_suffix(".binu8").open("wb")
 		dst.write(data)
-		for rows in txt:
-			if rows[0] != '●':
-				continue
-			row = txt.readline().rstrip('\r\n').replace('\\n', '\n').replace('\\r', '\r')
+		dst.write(struct.pack("<LB", 1, 0))
 
-			str = bytes(row, 'utf-8')
-			dst.write(struct.pack('<L', len(str)+1))
-			dst.write(struct.pack("%ds" % len(str), str))
-			dst.write(struct.pack('B',0))
+		rows = txt.readlines()
+		for i, row in enumerate(rows):
+			if row[0] != "●":
+				continue
+			if i + 1 < len(rows):
+				row = rows[i + 1].rstrip("\r\n").replace("\\n", "\n").replace("\\r", "\r") + "\x00"
+				str_bytes = bytes(row, "utf-8")
+				dst.write(struct.pack("<L", len(str_bytes)))
+				dst.write(struct.pack(f"{len(str_bytes)}s", str_bytes))
 
 		src.seek(str_offset)
-		str_count = byte2int(src.read(4))
-		dumptxt(src, src.tell()+5, str_count-1)
-		data=src.read(filesize-src.tell())
+		_ = dumptxt(src, src.tell(), str_count)
+
+		data = src.read(filesize - src.tell())
 		dst.write(data)
 		src.close()
 		dst.close()
 		txt.close()
 
-main()
+	print(f"Import completed successfully with {len(f_lst)} files processed.")
+
+
+if __name__ == "__main__":
+	import sys
+
+	if len(sys.argv) != 2:
+		print("Usage: python binu8_import.py <pac_unpack folder>")
+		sys.exit(1)
+
+	src_folder = Path(sys.argv[1])
+
+	if not src_folder.exists():
+		print(f"Error: Folder '{src_folder}' not found!")
+		sys.exit(1)
+
+	try:
+		main(src_folder)
+	except Exception as e:
+		print(f"Error during dump: {e}")
+		import traceback
+
+		traceback.print_exc()
+		sys.exit(1)

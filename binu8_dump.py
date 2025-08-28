@@ -95,6 +95,7 @@ if __name__ == "__main__":
 	except Exception as e:
 		print(f"Error during dump: {e}")
 		import traceback
+
 		traceback.print_exc()
 		sys.exit(1)
 
