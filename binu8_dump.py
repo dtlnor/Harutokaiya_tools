@@ -74,9 +74,27 @@ def main(src_folder: Path):
 		src.close()
 		dst.close()
 
+	print(f"Dump completed successfully with {len(f_lst)} files processed.")
+
 
 if __name__ == "__main__":
 	import sys
 
+	if len(sys.argv) != 2:
+		print("Usage: python binu8_dump.py <pac_unpack folder>")
+		sys.exit(1)
+	
 	src_folder = Path(sys.argv[1])
-	main(src_folder)
+
+	if not src_folder.exists():
+		print(f"Error: Folder '{src_folder}' not found!")
+		sys.exit(1)
+	
+	try:
+		main(src_folder)
+	except Exception as e:
+		print(f"Error during dump: {e}")
+		import traceback
+		traceback.print_exc()
+		sys.exit(1)
+
