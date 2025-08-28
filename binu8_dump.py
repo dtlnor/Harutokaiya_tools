@@ -1,80 +1,82 @@
-import struct,os
+import struct
+import os
+import io
+from pathlib import Path
 
 
-def walk(adr):
-	mylist=[]
-	for root,dirs,files in os.walk(adr):
-		for name in files:
-			if name[-6:] != '.binu8':
-				continue
-			if name == '__global.binu8':
-				continue
-			adrlist=os.path.join(root, name)
-			mylist.append(adrlist)
-	return mylist
-
-def byte2int(byte):
-	long_tuple=struct.unpack('<L',byte)
-	long = long_tuple[0]
+def byte2int(byte: bytes) -> int:
+	long, = struct.unpack("<L", byte)
 	return long
 
-def int2byte(num):
-	return struct.pack('L',num)
 
-def FormatString(string, count):
-	res = "○%08d○\n%s\n●%08d●\n%s\n\n"%(count, string, count, string)
-	
+def int2byte(num: int) -> bytes:
+	return struct.pack("L", num)
+
+
+def FormatString(string: str, count: int) -> str:
+	res = f"○{count:08d}○\n{string}\n●{count:08d}●\n{string}\n\n"
+
 	return res
 
-def dumpstr(src):
-    bstr = b''
-    len = src.read(4)
-    c = src.read(1)
-    while c != b'\x00':
-        bstr += c
-        c = src.read(1)
-    return bstr.decode('utf-8')
 
-def dumptxt(src, offset, count):
-	src.seek(offset)
+def dumpstr(src: io.BufferedReader) -> str:
+	length, = struct.unpack("<I", src.read(4))  # pascal string
+	bstr = src.read(length)
+	assert bstr[-1] == 0  # pascal string should be null-terminated
+	# return str and remove trailing null bytes
+	return bstr.decode("utf-8").rstrip("\x00")
+
+
+def dumptxt(src: io.BufferedReader, offset: int, count: int) -> list[str]:
+	src.seek(offset, os.SEEK_SET)
 	str_list = []
-	for i in range(0, count):
-		str_list.append(dumpstr(src).replace('\n', '\\n').replace('\r', '\\r'))
+	for _ in range(count):
+		str_list.append(dumpstr(src).replace("\n", "\\n").replace("\r", "\\r"))
 	return str_list
 
-def main():
-	f_lst = walk('Script')
+
+def main(src_folder: Path):
+	f_lst = [file_path for file_path in src_folder.rglob("*.binu8") if file_path.name != "__global.binu8"]
 	for fn in f_lst:
-		src = open(fn, 'rb')
-		dstname = fn[:-6] + '.txt'
-		dst = open(dstname, 'w', encoding='utf-8')
-		version = src.read(9)
+		src = fn.open("rb")
+		dstname = fn.with_suffix(".txt")
+		dst = dstname.open("w", encoding="utf-8")
+
+		header = src.read(9)
+		VER_MAGIC = b"VER"
 		# does it start with version (no length prefix)
-		if version[0] == 0x56 and version[1] == 0x45 and version[2] == 0x52: # VER
-			src.seek(9, 0)
+		if header[:3] == VER_MAGIC:
+			src.seek(9, os.SEEK_SET)
 			unk_count = byte2int(src.read(4))
-			src.seek(unk_count * 4, 1)
+			src.seek(unk_count * 4, os.SEEK_CUR)
 		# does it start with version (length prefixed)
-		elif version[0] == 9 and version[4] == 0x56 and version[5] == 0x45 and version[6] == 0x52:
-			src.seek(13, 0)
+		elif header[0] == 9 and header[4:7] == VER_MAGIC:
+			src.seek(13, os.SEEK_SET)
 			unk_count = byte2int(src.read(4))
-			src.seek(unk_count * 4, 1)
+			src.seek(unk_count * 4, os.SEEK_CUR)
 		# if it doesnt start with version
 		else:
-			src.seek(0)
+			src.seek(0, os.SEEK_SET)
 
 		init_code_count = byte2int(src.read(4))
-		src.seek(init_code_count * 8, 1)
+		src.seek(init_code_count * 8, os.SEEK_CUR)
 		code_count = byte2int(src.read(4))
-		src.seek(code_count * 8, 1)
+		src.seek(code_count * 8, os.SEEK_CUR)
 		str_count = byte2int(src.read(4))
 
-		str_list = dumptxt(src, src.tell()+5, str_count-1)
-		i = 0
-		for string in str_list:
+		str_list = dumptxt(src, src.tell(), str_count)
+		assert str_list[0] == ""  # first string is always empty
+		str_list = str_list[1:]
+
+		for i, string in enumerate(str_list):
 			dst.write(FormatString(string, i))
-			i += 1
 
 		src.close()
 		dst.close()
-main()
+
+
+if __name__ == "__main__":
+	import sys
+
+	src_folder = Path(sys.argv[1])
+	main(src_folder)
